@@ -3,8 +3,11 @@ uuid = "d4a64349-7d63-4304-bc85-347e5f0acb8c"
 authors = ["Mauro Werder <mauro3@runbox.com> and contributors"]
 version = "0.1.0"
 
+[deps]
+Literate = "98b081ad-f1c9-55d3-8b20-4c87d4299306"
+
 [compat]
-julia = "1"
+julia = "1.7"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
