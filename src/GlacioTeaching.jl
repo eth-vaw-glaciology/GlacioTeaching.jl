@@ -65,11 +65,27 @@ function make_sol(str)
     return str
 end
 
-function process_file(fl, outputfolder;
-                      make_outputs=[:both, :sol, :assignment, :no_preprocessing][1],
-                      execute=[:sol, true, false][1],
-                      make_jl=false, make_ipynb=true, make_md=false)
+"""
+    function process_file(fl, outputfolder, filetype=[:jl, :md, :nb][3];
+                          make_outputs=[:sol, :assignment, :no_preprocessing][2],
+                          execute=[:sol, true, false][1])
 
+Process one Julia-Literate-file and stick it into the outputfolder.  It can process files
+which have special tags `#sol` and `#hint` which will be rendered depending on what kind
+of output is used.
+
+The `filetype` determines what output is done: a julia-script, markdown, or Jupyter-notebook
+
+Options:
+- make_outputs=[:sol, :assignment, :no_preprocessing][2] -- which output should be produced.
+- execute=[:sol, true, false][1] -- whether to run the script or not. `:sol` only runs when
+                                    producing a "solution" file.
+
+See also `process_folder`, which processes a whole folder of files.
+"""
+function process_file(fl, outputfolder, filetype=[:jl, :md, :nb][3];
+                      make_outputs=[:sol, :assignment, :no_preprocessing][2 ],
+                      execute=[:sol, true, false][1])
     # create ipynb and scripts
     pre_fns = if make_outputs==:both
         [make_sol, make_hint]
@@ -91,18 +107,24 @@ function process_file(fl, outputfolder;
             execute
         end
 
-        make_ipynb && Literate.notebook(fl, outputfolder; credit=false, execute=ex, mdstrings=true, preprocess=pre_fn)
-        make_jl && Literate.script(fl, outputfolder; credit=false, execute=ex, mdstrings=true, preprocess=pre_fn)
-        make_md && Literate.markdown(fl, outputfolder; credit=false, execute=ex, mdstrings=true, preprocess=pre_fn)
+        if filetype==:jl
+            Literate.script(fl, outputfolder; credit=false, execute=ex, mdstrings=true, preprocess=pre_fn)
+        elseif filetype==:md
+            Literate.markdown(fl, outputfolder; credit=false, execute=ex, mdstrings=true, preprocess=pre_fn)
+        elseif filetype==:nb
+            Literate.notebook(fl, outputfolder; credit=false, execute=ex, mdstrings=true, preprocess=pre_fn)
+        else
+            error("Not recognized option filetype: $filetype")
+        end
     end
 
     return nothing
 end
 
-function process_folder(inputfolder, outputfolder;
+function process_folder(inputfolder, outputfolder, filetype=[:jl, :md, :nb][3];
                         make_outputs=[:both, :sol, :assignment, :no_preprocessing][1],
-                        execute=[:sol, true, false][1],
-                        make_jl=false, make_ipynb=true, make_md=false)
+                        execute=[:sol, true, false][1]
+                        )
 
     mkpath(outputfolder)
 
@@ -114,7 +136,7 @@ function process_folder(inputfolder, outputfolder;
 
         println("Processing file: $fl")
 
-        process_file(fl, outputfolder; make_outputs, execute, make_jl, make_ipynb, make_md)
+        process_file(fl, outputfolder, filetype; make_outputs, execute)
     end
 end
 
