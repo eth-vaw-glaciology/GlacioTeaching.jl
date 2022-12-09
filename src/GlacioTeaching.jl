@@ -65,12 +65,38 @@ function make_sol(str)
     return str
 end
 
-function make_assignment_notebook()
+function process_file(fl, outputfolder;
+                      make_outputs=[:both, :sol, :assignment, :no_preprocessing][1],
+                      execute=[:sol, true, false][1],
+                      make_jl=false, make_ipynb=true, make_md=false)
 
-end
+    # create ipynb and scripts
+    pre_fns = if make_outputs==:both
+        [make_sol, make_hint]
+    elseif make_outputs==:sol
+        [make_sol]
+    elseif make_outputs==:assignment
+        [make_hint]
+    elseif make_outputs==:no_preprocessing
+        x->x
+    else
+        error("Kwarg `make_outputs` not recognised: $make_outputs")
+    end
 
-function make_solution_notebook()
 
+    for pre_fn in pre_fns
+        ex = if execute==:sol
+            pre_fn==make_sol ? true : false
+        else
+            execute
+        end
+
+        make_ipynb && Literate.notebook(fl, outputfolder; credit=false, execute=ex, mdstrings=true, preprocess=pre_fn)
+        make_jl && Literate.script(fl, outputfolder; credit=false, execute=ex, mdstrings=true, preprocess=pre_fn)
+        make_md && Literate.markdown(fl, outputfolder; credit=false, execute=ex, mdstrings=true, preprocess=pre_fn)
+    end
+
+    return nothing
 end
 
 function process_folder(inputfolder, outputfolder;
@@ -88,31 +114,7 @@ function process_folder(inputfolder, outputfolder;
 
         println("Processing file: $fl")
 
-        # create ipynb and scripts
-        pre_fns = if make_outputs==:both
-            [make_sol, make_hint]
-        elseif make_outputs==:sol
-            [make_sol]
-        elseif make_outputs==:assignment
-            [make_hint]
-        elseif make_outputs==:no_preprocessing
-            x->x
-        else
-            error("Kwarg `make_outputs` not recognised: $make_outputs")
-        end
-
-
-        for pre_fn in pre_fns
-            ex = if execute==:sol
-                pre_fn==make_sol ? true : false
-            else
-                execute
-            end
-
-            make_ipynb && Literate.notebook(fl, outputfolder; credit=false, execute=ex, mdstrings=true, preprocess=pre_fn)
-            make_jl && Literate.script(fl, outputfolder; credit=false, execute=ex, mdstrings=true, preprocess=pre_fn)
-            make_md && Literate.markdown(fl, outputfolder; credit=false, execute=ex, mdstrings=true, preprocess=pre_fn)
-        end
+        process_file(fl, outputfolder; make_outputs, execute, make_jl, make_ipynb, make_md)
     end
 end
 
