@@ -78,10 +78,13 @@ function process_folder(inputfolder, outputfolder;
                         execute=[:sol, true, false][1],
                         make_jl=false, make_ipynb=true, make_md=false)
 
-    for fl in readdir(inputfolder)
-        if splitext(fl)[end]!=".jl" || splitpath(@__FILE__)[end]==fl
+    mkpath(outputfolder)
+
+    for fll in readdir(inputfolder)
+        if splitext(fll)[end]!=".jl" || splitpath(@__FILE__)[end]==fll
             continue
         end
+        fl = joinpath(inputfolder, fll)
 
         println("Processing file: $fl")
 
@@ -110,6 +113,7 @@ function process_folder(inputfolder, outputfolder;
             make_jl && Literate.script(fl, outputfolder; credit=false, execute=ex, mdstrings=true, preprocess=pre_fn)
             make_md && Literate.markdown(fl, outputfolder; credit=false, execute=ex, mdstrings=true, preprocess=pre_fn)
         end
+    end
 end
 
 end
