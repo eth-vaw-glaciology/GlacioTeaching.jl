@@ -3,6 +3,36 @@ module GlacioTeaching
 using Literate
 
 """
+    replace_include(str, filetype)
+
+Replace `include`s with `@nbinclude`, useful for notebooks.
+
+- first encounter of `include` will also add a `using NBInclude`
+"""
+function replace_include(str, filetype)
+    filetype!=:nb && return str
+
+    # regex to match include with parenthesis around
+    # https://stackoverflow.com/questions/546433/regular-expression-to-match-balanced-parentheses
+    re = r"\binclude\((?:[^)(]+|(?R))*+\)"
+
+    count = 0
+    out = ""
+    for l in split(str, '\n')
+        if occursin(re, l)
+            l = replace(l, r"\binclude" => "@nbinclude")
+            l = replace(l, ".jl\"" => ".ipynb\"")
+            if count==0
+                out *= "using NBInclude\n"
+            end
+            count += 1
+        end
+        out *= l * "\n"
+    end
+    return out
+end
+
+"""
     process_hashtag(str, hashtag, fn; striptag=true)
 
 Process all lines in str which start or end with a hashtag with the supplied
@@ -26,7 +56,6 @@ function process_hashtag(str, hashtag, fn; striptag=true)
 
 
     out = ""
-    regex = Regex(hashtag)
     for line in split(str, '\n')
         # turn `line` into String, then strip whitespace; that way the returned substring has
         # info on removed whitespace to be re-inserted later (we only care about preceeding whitespace).
@@ -80,19 +109,23 @@ Options:
 - make_outputs=[:sol, :assignment, :no_preprocessing][2] -- which output should be produced.
 - execute=[:sol, true, false][1] -- whether to run the script or not. `:sol` only runs when
                                     producing a "solution" file.
+- sub_nbinclude=true -- whether to substitute `include` with `@nbinclude` in notebooks
 
 See also `process_folder`, which processes a whole folder of files.
 """
 function process_file(fl, outputfolder, filetype=[:jl, :md, :nb][3];
                       make_outputs=[:sol, :assignment, :no_preprocessing][2 ],
-                      execute=[:sol, true, false][1])
+                      execute=[:sol, true, false][1],
+                      sub_nbinclude=true)
+    nb_sub = sub_nbinclude ? str -> replace_include(str, filetype) : str -> str
+
     # create ipynb and scripts
     pre_fns = if make_outputs==:both
-        [make_sol, make_hint]
+        [nb_sub ∘ make_sol, nb_sub ∘ make_hint]
     elseif make_outputs==:sol
-        [make_sol]
+        [nb_sub ∘ make_sol]
     elseif make_outputs==:assignment
-        [make_hint]
+        [nb_sub ∘ make_hint]
     elseif make_outputs==:no_preprocessing
         x->x
     else
@@ -125,14 +158,12 @@ function process_folder(inputfolder, outputfolder, filetype=[:jl, :md, :nb][3];
                         make_outputs=[:both, :sol, :assignment, :no_preprocessing][1],
                         execute=[:sol, true, false][1]
                         )
-
     mkpath(outputfolder)
 
-    for fll in readdir(inputfolder)
-        if splitext(fll)[end]!=".jl" || splitpath(@__FILE__)[end]==fll
-            continue
-        end
-        fl = joinpath(inputfolder, fll)
+    for fl in readdir(inputfolder, join=true)
+        !isfile(fl) && continue # do not recurse into sub-directories
+        splitext(fl)[end]!=".jl" && continue
+        @__FILE__() == fl && continue
 
         println("Processing file: $fl")
 
