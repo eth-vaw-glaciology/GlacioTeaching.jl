@@ -8,8 +8,10 @@ using Literate
 Replace `include`s with `@nbinclude`, useful for notebooks.
 
 - first encounter of `include` will also add a `using NBInclude`
+
+- `path` to work around https://github.com/stevengj/NBInclude.jl/issues/28
 """
-function replace_include(str, filetype)
+function replace_include(str, filetype; path=nothing)
     filetype!=:nb && return str
 
     # regex to match include with parenthesis around
@@ -22,6 +24,9 @@ function replace_include(str, filetype)
         if occursin(re, l)
             l = replace(l, r"\binclude" => "@nbinclude")
             l = replace(l, ".jl\"" => ".ipynb\"")
+            if path!==nothing
+                l = replace(l, "(\"" => "(\"" * path * "/" )
+            end
             if count==0
                 out *= "using NBInclude\n"
             end
@@ -116,16 +121,16 @@ See also `process_folder`, which processes a whole folder of files.
 function process_file(fl, outputfolder, filetype=[:jl, :md, :nb][3];
                       make_outputs=[:sol, :assignment, :no_preprocessing][2 ],
                       execute=[:sol, true, false][1],
-                      sub_nbinclude=true)
-    nb_sub = sub_nbinclude ? str -> replace_include(str, filetype) : str -> str
+                      sub_nbinclude=true,
+                      path_nbinclude=nothing)
+    nb_sub = sub_nbinclude ? str -> replace_include(str, filetype, path=path_nbinclude) : str -> str
 
-    # create ipynb and scripts
     pre_fns = if make_outputs==:both
-        [nb_sub ∘ make_sol, nb_sub ∘ make_hint]
+        [make_sol, make_hint]
     elseif make_outputs==:sol
-        [nb_sub ∘ make_sol]
+        [make_sol]
     elseif make_outputs==:assignment
-        [nb_sub ∘ make_hint]
+        [make_hint]
     elseif make_outputs==:no_preprocessing
         x->x
     else
@@ -140,12 +145,13 @@ function process_file(fl, outputfolder, filetype=[:jl, :md, :nb][3];
             execute
         end
 
+        kwargs = (credit=false, execute=ex, mdstrings=true, preprocess=nb_sub ∘ pre_fn)
         if filetype==:jl
-            Literate.script(fl, outputfolder; credit=false, execute=ex, mdstrings=true, preprocess=pre_fn)
+            Literate.script(fl, outputfolder; kwargs...)
         elseif filetype==:md
-            Literate.markdown(fl, outputfolder; credit=false, execute=ex, mdstrings=true, preprocess=pre_fn)
+            Literate.markdown(fl, outputfolder; kwargs...)
         elseif filetype==:nb
-            Literate.notebook(fl, outputfolder; credit=false, execute=ex, mdstrings=true, preprocess=pre_fn)
+            Literate.notebook(fl, outputfolder; kwargs...)
         else
             error("Not recognized option filetype: $filetype")
         end
@@ -156,18 +162,24 @@ end
 
 function process_folder(inputfolder, outputfolder, filetype=[:jl, :md, :nb][3];
                         make_outputs=[:both, :sol, :assignment, :no_preprocessing][1],
-                        execute=[:sol, true, false][1]
-                        )
+                        execute=[:sol, true, false][1],
+                        path_nbinclude=nothing,
+                        asset_files=[])
     mkpath(outputfolder)
 
     for fl in readdir(inputfolder, join=true)
         !isfile(fl) && continue # do not recurse into sub-directories
-        splitext(fl)[end]!=".jl" && continue
+        ext = splitext(fl)[end]
+        if ext!=".jl"
+            if ext in asset_files
+                # copy over
+                cp(fl, joinpath(outputfolder, splitdir(fl)[2]), force=true)
+            end
+            continue
+        end
         @__FILE__() == fl && continue
 
-        println("Processing file: $fl")
-
-        process_file(fl, outputfolder, filetype; make_outputs, execute)
+        process_file(fl, outputfolder, filetype; make_outputs, execute, path_nbinclude)
     end
 end
 
