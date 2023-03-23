@@ -122,7 +122,9 @@ function process_file(fl, outputfolder, filetype=[:jl, :md, :nb][3];
                       make_outputs=[:sol, :assignment, :no_preprocessing][2 ],
                       execute=[:sol, true, false][1],
                       sub_nbinclude=true,
-                      path_nbinclude=nothing)
+                      path_nbinclude=nothing,
+                      flavor = Literate.CommonMarkFlavor(),
+                      kws...)
     nb_sub = sub_nbinclude ? str -> replace_include(str, filetype, path=path_nbinclude) : str -> str
 
     pre_fns = if make_outputs==:both
@@ -145,7 +147,7 @@ function process_file(fl, outputfolder, filetype=[:jl, :md, :nb][3];
             execute
         end
 
-        kwargs = (credit=false, execute=ex, mdstrings=true, preprocess=nb_sub ∘ pre_fn)
+        kwargs = (credit=false, execute=ex, mdstrings=true, preprocess=nb_sub ∘ pre_fn, flavor, kws...)
         if filetype==:jl
             Literate.script(fl, outputfolder; kwargs...)
         elseif filetype==:md
@@ -164,7 +166,9 @@ function process_folder(inputfolder, outputfolder, filetype=[:jl, :md, :nb][3];
                         make_outputs=[:both, :sol, :assignment, :no_preprocessing][1],
                         execute=[:sol, true, false][1],
                         path_nbinclude=nothing,
-                        asset_files=[])
+                        flavor = Literate.CommonMarkFlavor(),
+                        asset_files=[],
+                        kws...)
     mkpath(outputfolder)
 
     for fl in readdir(inputfolder, join=true)
@@ -179,7 +183,7 @@ function process_folder(inputfolder, outputfolder, filetype=[:jl, :md, :nb][3];
         end
         @__FILE__() == fl && continue
 
-        process_file(fl, outputfolder, filetype; make_outputs, execute, path_nbinclude)
+        process_file(fl, outputfolder, filetype; make_outputs, execute, path_nbinclude, flavor, kws...)
     end
 end
 
