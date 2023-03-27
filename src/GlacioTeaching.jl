@@ -99,6 +99,10 @@ function make_sol(str)
     return str
 end
 
+function make_slide(str)
+    todo
+end
+
 """
     function process_file(fl, outputfolder, filetype=[:jl, :md, :nb][3];
                           make_outputs=[:sol, :assignment, :no_preprocessing][2],
